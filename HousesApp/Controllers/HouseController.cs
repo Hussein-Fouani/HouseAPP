@@ -1,62 +1,69 @@
 ﻿using System.Net;
+using AutoMapper;
+using HousesApp.Models;
 using HousesApp.Models.Dto;
+using HousesApp.Repository.IRepository;
 using Microsoft.AspNetCore.JsonPatch;
 using Microsoft.AspNetCore.Mvc;
 
 namespace HousesApp.Controllers;
 [ApiController]
-public class HouseApiController : ControllerBase
+[Route("api/[controller]")]
+public class HouseController : ControllerBase
 {
-    // GET
-    [Route("api/[controller]")]
-    [HttpGet]
-    public ActionResult<IEnumerable<HouseDto>> GetHouses()
+    private readonly IHouseRepository _houseRepository;
+    private readonly IMapper _mapper;
+
+
+    public HouseController(IHouseRepository houseRepository, IMapper mapper)
     {
-        return Ok();
+        _houseRepository = houseRepository;
+        _mapper = mapper;
     }
-    
-    [Route("api/[controller]/{id}")]
+
     [HttpGet("{id:Guid}")]
     [ProducesResponseType(200)]
     [ProducesResponseType(400)]
     [ProducesResponseType(404)]
-    public ActionResult<HouseDto> GetHouseById(Guid id)
+    public async Task<ActionResult<HouseDto>> GetHouseById(Guid id)
     {
-        if(id == Guid.Empty)
-            return BadRequest("NO ID PROVIDED");
-        return Ok();
+        var house = await _houseRepository.GetHouseByIdAsync(i => i.Id == id);
+        if (house == null)
+            return NotFound("HOUSE NOT FOUND");
+        return Ok(_mapper.Map<HouseDto>(house));
     }
     [HttpPost]
     [ProducesResponseType(201)]
     [ProducesResponseType(400)]
-    public ActionResult<HouseDto> CreateHouse([FromBody]HouseDto house)
+    public async Task<ActionResult<HouseDto>> CreateHouse([FromBody] HouseCreateDto house)
     {
-        
-        if(house == null)
-            return BadRequest("NO HOUSE PROVIDED");
-        if (house.Id != Guid.Empty)
-            return StatusCode(StatusCodes.Status500InternalServerError);
 
-        
-        return CreatedAtRoute("GetHouseById", new {id = house.Id}, house);
+        if (house == null)
+            return BadRequest("NO HOUSE PROVIDED");
+        var newhouse = _mapper.Map<HouseModel>(house);
+        await _houseRepository.CreateHouseAsync(newhouse);
+
+        return CreatedAtRoute("GetHouseById", new { Id = newhouse.Id }, house);
     }
-   [HttpDelete]
-   [ProducesResponseType(204)]
-   [ProducesResponseType(400)]
-   [ProducesResponseType(404)]
-   public IActionResult DeleteHouseById(Guid id)
-   {
-       if(id == Guid.Empty)
-           return NotFound("NO ID PROVIDED");
-       return NoContent();
-   }
+    [HttpDelete]
+    [ProducesResponseType(204)]
+    [ProducesResponseType(400)]
+    [ProducesResponseType(404)]
+    public async Task<IActionResult> DeleteHouseById(Guid id)
+    {
+        var house = await _houseRepository.GetHouseByIdAsync(i => i.Id == id);
+        if (house == null)
+            return NotFound("HOUSE NOT FOUND");
+      await  _houseRepository.DeleteHouseAsync(house);
+        return NoContent();
+    }
     [HttpPut("{id:Guid}")]
     [ProducesResponseType(204)]
     [ProducesResponseType(400)]
     [ProducesResponseType(404)]
     public IActionResult UpdateHouse(Guid id, [FromBody] HouseDto house)
     {
-        if(id == Guid.Empty)
+        if (id == Guid.Empty)
             return NotFound("NO ID PROVIDED");
         return NoContent();
     }
@@ -64,10 +71,18 @@ public class HouseApiController : ControllerBase
     [ProducesResponseType(204)]
     [ProducesResponseType(400)]
     [ProducesResponseType(404)]
-    public IActionResult PartialUpdate(Guid Id, [FromBody] JsonPatchDocument<HouseDto> document)
+    public async Task<ActionResult<UpdateHouseDto>> PartialUpdate(Guid Id, [FromBody] JsonPatchDocument<UpdateHouseDto> document)
     {
-        if(Id == Guid.Empty)
-            return NotFound("NO ID PROVIDED");
-        return NoContent();
+        var upadtedHouse = await _houseRepository.GetHouseByIdAsync(i => i.Id == Id);
+        if (upadtedHouse == null)
+            return NotFound("HOUSE NOT FOUND");
+        var houseToPatch = _mapper.Map<UpdateHouseDto>(upadtedHouse);
+        document.ApplyTo(houseToPatch, ModelState);
+        if (!TryValidateModel(houseToPatch))
+            return ValidationProblem(ModelState);
+        var newhouse = _mapper.Map(houseToPatch, upadtedHouse);
+        await _houseRepository.UpdateHouseAsync(Id, newhouse);
+        var result = _mapper.Map<UpdateHouseDto>(newhouse);
+        return Ok(result);
     }
 }
