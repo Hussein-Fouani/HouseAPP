@@ -35,7 +35,7 @@ namespace HousesApp.Repository
             }
             if (filter != null)
                 house = house.Where(filter);
-            return await dbSet.FirstOrDefaultAsync();
+            return await house.FirstOrDefaultAsync();
         }
 
 
