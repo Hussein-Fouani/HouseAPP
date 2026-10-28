@@ -23,7 +23,7 @@ public class HouseController : ControllerBase
         this.apiResponse = new ApiResponse();
     }
 
-    [HttpGet("{id:Guid}")]
+    [HttpGet("{id:Guid}", Name = "GetHouseById")]
     [ProducesResponseType(200)]
     [ProducesResponseType(400)]
     [ProducesResponseType(404)]
@@ -71,7 +71,7 @@ public class HouseController : ControllerBase
             }
             apiResponse.isSuccess = true;
             apiResponse.StatusCode = HttpStatusCode.OK;
-            apiResponse.Result = _mapper.Map<HouseDto>(houses);
+            apiResponse.Result = _mapper.Map<List<HouseDto>>(houses);
             return Ok(apiResponse);
         }
         catch (Exception ex)
